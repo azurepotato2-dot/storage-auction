@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mystery Storage Auction - v2.3.0</title>
+<style>
+  :root {
+    --bg: #0c0d11;
+    --surface: #15171e;
+    --panel: #1d202b;
+    --gold: #f9f1a5;
+    --cyan: #61d6d6;
+    --green: #2ecc71;
+    --red: #ff5e5e;
+    --border: #383d4f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 25px 15px;
+    background: var(--bg);
+    color: var(--gold);
+    font-family: Consolas, "Courier New", monospace;
+    display: flex;
+    justify-content: center;
+  }
+  body.theme-green { --bg: #071209; --surface: #0d1f11; --panel: #132b19; --gold: #4af626; --cyan: #a8ff96; --border: #255230; }
+  body.theme-neon  { --bg: #0b0714; --surface: #140d24; --panel: #1e1336; --gold: #ff71ce; --cyan: #01cdfe; --border: #432875; }
+  body.theme-light { --bg: #eef0f4; --surface: #ffffff; --panel: #f7f8fa; --gold: #1f2329; --cyan: #0066cc; --green: #169c4e; --red: #d93025; --border: #ccd1db; }
+
+  .container {
+    width: 100%;
+    max-width: 600px;
+    background: var(--surface);
+    border: 2px solid var(--gold);
+    border-radius: 8px;
+    padding: 22px;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
+  }
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed var(--border);
+    padding-bottom: 12px;
+    margin-bottom: 18px;
+    gap: 10px;
+  }
+  .topbar h1 {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+  .hud, .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 14px;
+  }
+  .hud {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.92rem;
+  }
+  .admin {
+    background: #241318;
+    border: 1px dashed var(--red);
+    border-radius: 6px;
+    padding: 14px;
+    margin-bottom: 14px;
+    color: #f9f1a5;
+  }
+  .settings-box {
+    background: var(--panel);
+    border: 1px solid var(--cyan);
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 16px;
+  }
+  .cyan { color: var(--cyan); font-weight: bold; }
+  .green { color: var(--green); font-weight: bold; }
+  .red { color: var(--red); font-weight: bold; }
+  input, select {
+    padding: 8px 10px;
+    background: var(--bg);
+    color: var(--gold);
+    border: 1px solid var(--gold);
+    border-radius: 4px;
+    font: inherit;
+    font-size: 0.95rem;
+  }
+  button {
+    padding: 8px 14px;
+    background: var(--gold);
+    color: var(--bg);
+    border: none;
+    border-radius: 4px;
+    font: inherit;
+    font-weight: bold;
+    cursor: pointer;
+    margin: 4px 4px 0 0;
+  }
+  button:hover { opacity: 0.9; }
+  button.alt {
+    background: transparent;
+    color: var(--gold);
+    border: 1px solid var(--gold);
+  }
+  button.cash { background: var(--green); color: #0c0d11; }
+  button.danger { background: var(--red); color: #0c0d11; }
+  .menu-stack { display: flex; flex-direction: column; gap: 10px; }
+  .hidden { display: none !important; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+  .bid-log {
+    max-height: 115px;
+    overflow-y: auto;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin-top: 10px;
+    font-size: 0.85rem;
+  }
+  .bid-log div { margin-bottom: 4px; }
+  .online-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .online-pill {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    text-align: center;
+  }
+  .chat-log {
+    height: 110px;
+    overflow-y: auto;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+  }
+  .chat-log div { margin-bottom: 4px; }
+  .winner-glow {
+    border: 2px solid var(--green) !important;
+  }
+  .footer {
+    text-align: center;
+    font-size: 0.8rem;
+    opacity: 0.65;
+    margin-top: 14px;
+  }
+
+  /* BIG SOLD STAMP OVERLAY */
+  .sold-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+    cursor: pointer;
+    animation: fadeBg 0.2s ease-out;
+  }
+  .sold-banner {
+    font-size: clamp(4.2rem, 15vw, 7.5rem);
+    font-weight: 900;
+    color: #2ecc71;
+    border: 8px solid #2ecc71;
+    padding: 12px 38px;
+    border-radius: 14px;
+    background: #0c0d11;
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    box-shadow: 0 0 45px rgba(46, 204, 113, 0.75);
+    transform: rotate(-7deg) scale(1);
+    animation: stampPop 0.32s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    text-align: center;
+  }
+  .sold-sub {
+    display: block;
+    font-size: 1rem;
+    letter-spacing: 2px;
+    color: #f9f1a5;
+    margin-top: 6px;
+  }
+  @keyframes stampPop {
+    0% { transform: rotate(-18deg) scale(2.4); opacity: 0; }
+    100% { transform: rotate(-7deg) scale(1); opacity: 1; }
+  }
+  @keyframes fadeBg {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- BIG SOLD BANNER OVERLAY -->
+<div id="sold-overlay" class="sold-overlay hidden" onclick="hideSoldBanner()">
+  <div class="sold-banner">
+    SOLD!
+    <span id="sold-subtext" class="sold-sub"></span>
+  </div>
+</div>
+
+<main class="container">
+  <div class="topbar">
+    <h1>MYSTERY STORAGE AUCTION</h1>
+    <button class="alt" onclick="toggleSettings()">Settings</button>
+  </div>
+
+  <!-- SETTINGS PANEL -->
+  <section id="settings-panel" class="settings-box hidden">
+    <p style="margin-top:0;" class="cyan">SETTINGS</p>
+    <div class="row">
+      <label for="set-theme">Theme:</label>
+      <select id="set-theme" onchange="applyTheme(this.value)">
+        <option value="default">Classic Gold</option>
+        <option value="theme-green">Terminal Green</option>
+        <option value="theme-neon">Cyber Neon</option>
+        <option value="theme-light">Daylight Light</option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="set-sound">Sound Effects:</label>
+      <select id="set-sound" onchange="soundOn = this.value === 'on'">
+        <option value="on">On</option>
+        <option value="off">Off</option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="set-name">Online Name:</label>
+      <input type="text" id="set-name" placeholder="Player" maxlength="16" oninput="syncDefaultName(this.value)">
+    </div>
+    <div class="row">
+      <label for="secret-input">input:</label>
+      <input type="text" id="secret-input" placeholder="" oninput="checkSecretInput(this.value)">
+    </div>
+    <div class="row">
+      <button onclick="toggleSettings()">Done</button>
+    </div>
+  </section>
+
+  <!-- SECRET ADMIN PANEL -->
+  <section id="admin-panel" class="admin hidden">
+    <p class="red" style="margin-top:0;">[ADMIN PANEL]</p>
+    <p>Current Cash: $<span id="adm-cash" class="cyan">0</span></p>
+    <div class="row">
+      <input type="number" id="adm-amount" min="1" placeholder="Amount $">
+      <button class="cash" onclick="adminCash(1)">+ Add</button>
+      <button class="danger" onclick="adminCash(-1)">- Remove</button>
+      <button class="alt" onclick="hideAdmin()">Hide</button>
+    </div>
+  </section>
+
+  <!-- MAIN MENU -->
+  <section id="view-menu">
+    <p>Choose your game mode:</p>
+    <div class="menu-stack">
+      <button onclick="startSolo('normal')">1. Normal Mode (5 Rounds)</button>
+      <button class="alt" onclick="startSolo('endless')">2. Endless Mode (Play until broke or quit)</button>
+      <button class="cash" onclick="openOnlineLobby()">3. Online 1v1 (Live Bidding War)</button>
+    </div>
+  </section>
+
+  <!-- ONLINE 1V1 LOBBY -->
+  <section id="view-online" class="hidden">
+    <div class="card">
+      <label for="online-name">Your Display Name:</label><br>
+      <input type="text" id="online-name" placeholder="Enter your name" maxlength="16" style="width:220px; margin-top:6px;">
+    </div>
+    <div class="card">
+      <p style="margin-top:0;" class="cyan">HOST A MATCH</p>
+      <button onclick="hostOnline()">Create Room Code</button>
+      <p id="host-msg" class="cyan"></p>
+    </div>
+    <div class="card">
+      <p style="margin-top:0;" class="cyan">JOIN A MATCH</p>
+      <div class="row">
+        <input type="text" id="join-code" placeholder="e.g. AUC-4821" style="text-transform:uppercase;">
+        <button onclick="joinOnline()">Join Room</button>
+      </div>
+      <p id="join-msg" class="red"></p>
+    </div>
+    <button class="alt" onclick="switchView('view-menu')">Back</button>
+  </section>
+
+  <!-- ACTIVE GAME -->
+  <section id="view-game" class="hidden">
+    <div class="hud">
+      <div>Round: <span id="hud-rnd" class="cyan">1</span></div>
+      <div>Cash: $<span id="hud-cash" class="cyan">1,000</span></div>
+      <div>Collection: $<span id="hud-col" class="cyan">0</span></div>
+      <div id="hud-str-box" class="hidden">Streak: <span id="hud-str" class="cyan">0</span> (Best: <span id="hud-best">0</span>)</div>
+    </div>
+
+    <!-- LIVE BIDDING WAR PANEL -->
+    <div id="card-bid" class="card">
+      <p style="margin-top:0;">ITEM: <span id="item-name" class="cyan"></span></p>
+      <p>Highest Bid: $<span id="high-bid" class="cyan">0</span> <span id="high-bidder" class="green"></span></p>
+
+      <!-- ONLINE LIVE STATUS -->
+      <div id="online-status-box" class="hidden">
+        <div class="online-grid">
+          <div class="online-pill">
+            <div id="p1-label" class="cyan">You</div>
+            <div>Cash: $<span id="p1-cash-live">1,000</span></div>
+          </div>
+          <div class="online-pill">
+            <div id="p2-label" class="cyan">Opponent</div>
+            <div id="p2-turn-state" class="cyan">Watching...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LIVE BIDDING HISTORY FOR CURRENT ITEM -->
+      <div id="bid-log" class="bid-log"></div>
+
+      <!-- BID CONTROLS -->
+      <div id="bid-controls" class="row">
+        <label for="bid-input">Your Bid: $</label>
+        <input type="number" id="bid-input" min="1" placeholder="0">
+        <button onclick="submitBid()">Raise Bid</button>
+        <button id="btn-quick-raise" class="alt" onclick="quickRaise()">+$50</button>
+        <button id="btn-pass" class="alt" onclick="passItem()">Pass / Drop Out</button>
+        <button id="btn-giveup" class="danger hidden" onclick="giveUpItem()">Give Up Item</button>
+        <button id="btn-quit" class="alt hidden" onclick="endGame()">Quit Run</button>
+      </div>
+      <p id="wait-msg" class="cyan hidden">Waiting for opponent's bid or pass...</p>
+      <p id="bid-err" class="red"></p>
+    </div>
+
+    <!-- ROUND RESULT PANEL -->
+    <div id="card-result" class="card hidden">
+      <p id="res-title"></p>
+      <p id="res-val"></p>
+      <p id="res-net"></p>
+      <div id="cashout-box" class="hidden" style="margin-top:12px;">
+        <p>Collection Ready: $<span id="res-col" class="cyan"></span></p>
+        <button class="cash" onclick="cashOut()">Cash Out Collection</button>
+      </div>
+      <div class="row">
+        <button id="btn-next" onclick="nextRound()">Next Round</button>
+        <span id="wait-host-msg" class="cyan hidden">Waiting for host to start next round...</span>
+      </div>
+    </div>
+
+    <!-- LIVE CHAT FOR ONLINE 1V1 -->
+    <div id="chat-card" class="card hidden">
+      <p style="margin-top:0;" class="cyan">LIVE CHAT</p>
+      <div id="chat-log" class="chat-log"></div>
+      <div class="row">
+        <input type="text" id="chat-input" placeholder="Say something..." style="flex:1; min-width:160px;">
+        <button onclick="sendChat()">Send</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- END SCREEN -->
+  <section id="view-end" class="hidden">
+    <!-- SOLO SUMMARY -->
+    <div id="solo-end-card" class="card">
+      <h2 style="margin-top:0;">AUCTION OVER</h2>
+      <p>Rounds Played: <span id="end-rnd" class="cyan"></span></p>
+      <p id="end-str-row" class="hidden">Best Win Streak: <span id="end-str" class="cyan"></span></p>
+      <p>Cash Remaining: $<span id="end-cash" class="cyan"></span></p>
+      <p>Collection Value: $<span id="end-col" class="cyan"></span></p>
+      <p>Final Net Worth: $<span id="end-tot" class="cyan"></span></p>
+      <p id="end-verdict"></p>
+    </div>
+
+    <!-- HEAD-TO-HEAD ONLINE SCOREBOARD -->
+    <div id="h2h-end-card" class="card hidden">
+      <h2 style="margin-top:0; text-align:center;">HEAD-TO-HEAD FINAL SCOREBOARD</h2>
+      <div class="online-grid">
+        <div id="h2h-me-box" class="card" style="margin-bottom:0;">
+          <p id="h2h-me-name" class="cyan" style="margin-top:0;"></p>
+          <p>Cash: $<span id="h2h-me-cash"></span></p>
+          <p>Collection: $<span id="h2h-me-col"></span></p>
+          <p>Net Worth: $<span id="h2h-me-tot" class="cyan"></span></p>
+        </div>
+        <div id="h2h-opp-box" class="card" style="margin-bottom:0;">
+          <p id="h2h-opp-name" class="cyan" style="margin-top:0;"></p>
+          <p>Cash: $<span id="h2h-opp-cash"></span></p>
+          <p>Collection: $<span id="h2h-opp-col"></span></p>
+          <p>Net Worth: $<span id="h2h-opp-tot" class="cyan"></span></p>
+        </div>
+      </div>
+      <p id="h2h-winner-banner" style="text-align:center; margin-top:14px; font-size:1.05rem;"></p>
+    </div>
+
+    <button onclick="switchView('view-menu')">Back to Menu</button>
+  </section>
+
+  <div class="footer">Version 2.3.0</div>
+</main>
+
+<script>
+const ITEMS = [
+  { name: "Dusty locked wooden chest", base: 350 },
+  { name: "Vintage painting with a torn frame", base: 120 },
+  { name: "Box of unmarked retro video games", base: 850 },
+  { name: "Antique brass telescope", base: 450 },
+  { name: "Mysterious locked briefcase", base: 600 },
+  { name: "Crate of old comic books", base: 300 },
+  { name: "Rusty toolbox from the 1950s", base: 150 },
+  { name: "Signed sports jersey in glass", base: 750 },
+  { name: "Bag of tangled vintage jewellery", base: 500 },
+  { name: "Broken grandfather clock", base: 250 },
+  { name: "???", base: 1250 }
+];
+
+const RIVALS = [
+  { name: "Adrian", minOpen: 50,  openSpread: 80,  maxCap: 320, stepMax: 60 },
+  { name: "Verity", minOpen: 100, openSpread: 110, maxCap: 560, stepMax: 95 },
+  { name: "Aeric",  minOpen: 80,  openSpread: 95,  maxCap: 480, stepMax: 80 },
+  { name: "Brennen",minOpen: 55,  openSpread: 75,  maxCap: 350, stepMax: 65 },
+  { name: "Samar",  minOpen: 70,  openSpread: 85,  maxCap: 410, stepMax: 75 },
+  { name: "Flynn",  minOpen: 75,  openSpread: 90,  maxCap: 440, stepMax: 80 },
+  { name: "Aden",   minOpen: 90,  openSpread: 120, maxCap: 600, stepMax: 110 }
+];
+
+let g = {
+  mode: "normal",
+  cash: 1000,
+  col: 0,
+  rnd: 1,
+  str: 0,
+  best: 0,
+  item: null,
+  val: 0,
+  riv: null,
+  rivalMax: 0,
+  highBid: 0,
+  highBidder: "",
+  myName: "Player",
+  oppName: "Opponent",
+  oppFinal: null
+};
+
+let soundOn = true;
+let audioCtx = null;
+let roomCode = "";
+let isHost = false;
+let pollTimer = null;
+let lastMsgId = "";
+let myTurnOnline = false;
+let soldHideTimer = null;
+
+const $ = id => document.getElementById(id);
+
+/* SOUND EFFECTS (WEB AUDIO API) */
+function playTone(freq, type, startOffset, duration, vol = 0.14) {
+  if (!soundOn) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + startOffset);
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime + startOffset);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + startOffset + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(audioCtx.currentTime + startOffset);
+    osc.stop(audioCtx.currentTime + startOffset + duration);
+  } catch (e) {}
+}
+
+function playBidSound() {
+  playTone(540, "triangle", 0, 0.08, 0.12);
+  playTone(720, "triangle", 0.06, 0.1, 0.12);
+}
+
+function playSoldSound() {
+  // Gavel slam + cash register chime
+  playTone(130, "sawtooth", 0, 0.16, 0.22);
+  playTone(95, "square", 0.02, 0.18, 0.18);
+  playTone(587.33, "triangle", 0.16, 0.14, 0.16); // D5
+  playTone(880.00, "triangle", 0.27, 0.16, 0.18); // A5
+  playTone(1174.66, "sine", 0.38, 0.35, 0.22);   // D6 bright bell
+}
+
+function playLoseSound() {
+  playTone(300, "sawtooth", 0, 0.18, 0.12);
+  playTone(210, "sawtooth", 0.15, 0.26, 0.12);
+}
+
+/* BIG SOLD BANNER */
+function showSoldBanner(itemName, price) {
+  $("sold-subtext").textContent = `${itemName} — $${price.toLocaleString()}`;
+  $("sold-overlay").classList.remove("hidden");
+  clearTimeout(soldHideTimer);
+  soldHideTimer = setTimeout(hideSoldBanner, 1750);
+}
+
+function hideSoldBanner() {
+  $("sold-overlay").classList.add("hidden");
+}
+
+/* SETTINGS & ADMIN */
+function toggleSettings() {
+  $("settings-panel").classList.toggle("hidden");
+}
+
+function applyTheme(cls) {
+  document.body.className = cls === "default" ? "" : cls;
+}
+
+function syncDefaultName(val) {
+  g.myName = val.trim() || "Player";
+  $("online-name").value = val;
+}
+
+function checkSecretInput(val) {
+  if (val.trim().toLowerCase() === "adrian") {
+    $("secret-input").value = "";
+    $("settings-panel").classList.add("hidden");
+    $("admin-panel").classList.remove("hidden");
+    $("adm-cash").textContent = g.cash.toLocaleString();
+  }
+}
+
+function hideAdmin() {
+  $("admin-panel").classList.add("hidden");
+}
+
+function adminCash(dir) {
+  const amt = Math.floor(Number($("adm-amount").value));
+  if (isNaN(amt) || amt <= 0) return;
+  g.cash = Math.max(0, g.cash + amt * dir);
+  $("adm-cash").textContent = g.cash.toLocaleString();
+  updateHUD();
+}
+
+/* VIEW SWITCHING */
+function switchView(id) {
+  ["view-menu", "view-online", "view-game", "view-end"].forEach(v => {
+    $(v).classList.toggle("hidden", v !== id);
+  });
+}
+
+function updateHUD() {
+  const maxR = g.mode === "endless" ? "" : " / 5";
+  $("hud-rnd").textContent = `${g.rnd}${maxR}`;
+  $("hud-cash").textContent = g.cash.toLocaleString();
+  $("hud-col").textContent = g.col.toLocaleString();
+  $("hud-str").textContent = g.str;
+  $("hud-best").textContent = g.best;
+  $("adm-cash").textContent = g.cash.toLocaleString();
+  $("p1-cash-live").textContent = g.cash.toLocaleString();
+}
+
+function addBidLog(text, cls = "") {
+  const row = document.createElement("div");
+  if (cls) row.className = cls;
+  row.textContent = text;
+  const log = $("bid-log");
+  log.appendChild(row);
+  log.scrollTop = log.scrollHeight;
+}
+
+function updateBidDisplay() {
+  $("high-bid").textContent = g.highBid.toLocaleString();
+  $("high-bidder").textContent = g.highBidder ? `(${g.highBidder})` : "";
+  const suggested = g.highBid + 50;
+  $("bid-input").min = g.highBid + 1;
+  $("bid-input").placeholder = suggested;
+  $("btn-quick-raise").textContent = `+$50 ($${suggested.toLocaleString()})`;
+}
+
+/* SOLO MODES (LIVE ESCALATING BIDDING WARS) */
+function startSolo(mode) {
+  stopOnlinePoll();
+  g = {
+    mode,
+    cash: 1000,
+    col: 0,
+    rnd: 1,
+    str: 0,
+    best: 0,
+    item: null,
+    val: 0,
+    riv: null,
+    rivalMax: 0,
+    highBid: 0,
+    highBidder: "",
+    myName: $("set-name").value.trim() || "You"
+  };
+
+  const isEndless = mode === "endless";
+  $("hud-str-box").classList.toggle("hidden", !isEndless);
+  $("btn-quit").classList.toggle("hidden", !isEndless);
+  $("online-status-box").classList.add("hidden");
+  $("chat-card").classList.add("hidden");
+  $("btn-giveup").classList.add("hidden");
+  $("btn-pass").classList.remove("hidden");
+
+  switchView("view-game");
+  setupSoloRound();
+}
+
+function generateItemAndVal() {
+  const picked = ITEMS[Math.floor(Math.random() * ITEMS.length)];
+  let val = 0;
+  if (picked.name === "???") {
+    val = Math.floor(Math.random() * 501) + 1000; // 1000 - 1500
+  } else {
+    const variance = Math.floor(Math.random() * 201) - 100;
+    val = Math.max(20, picked.base + variance);
+  }
+  return { item: picked, val };
+}
+
+function setupSoloRound() {
+  updateHUD();
+  $("bid-err").textContent = "";
+  $("bid-input").value = "";
+  $("bid-log").innerHTML = "";
+  $("card-bid").classList.remove("hidden");
+  $("card-result").classList.add("hidden");
+  $("bid-controls").classList.remove("hidden");
+  $("wait-msg").classList.add("hidden");
+
+  const gen = generateItemAndVal();
+  g.item = gen.item;
+  g.val = gen.val;
+
+  g.riv = RIVALS[Math.floor(Math.random() * RIVALS.length)];
+  // Rival's secret ceiling scales partially with item value + personality
+  const valFactor = Math.floor(g.val * (0.45 + Math.random() * 0.55));
+  g.rivalMax = Math.max(g.riv.minOpen + 40, Math.min(g.riv.maxCap + 450, valFactor));
+
+  const openingBid = Math.floor(Math.random() * g.riv.openSpread) + g.riv.minOpen;
+  g.highBid = openingBid;
+  g.highBidder = g.riv.name;
+
+  $("item-name").textContent = g.item.name;
+  updateBidDisplay();
+  addBidLog(`Auctioneer: Starting bid for ${g.item.name}!`);
+  addBidLog(`${g.riv.name} opens the bidding at $${openingBid.toLocaleString()}!`, "cyan");
+  $("bid-input").focus();
+}
+
+function quickRaise() {
+  const target = g.highBid + 50;
+  $("bid-input").value = target;
+  submitBid();
+}
+
+function submitBid() {
+  const raw = $("bid-input").value.trim();
+  if (!raw) {
+    $("bid-err").textContent = "Enter a bid higher than $" + g.highBid.toLocaleString();
+    return;
+  }
+  const amount = Math.floor(Number(raw));
+  if (isNaN(amount) || amount <= g.highBid) {
+    $("bid-err").textContent = `You must bid higher than $${g.highBid.toLocaleString()}!`;
+    return;
+  }
+  if (amount > g.cash) {
+    $("bid-err").textContent = "You do not have enough cash for that bid!";
+    return;
+  }
+
+  $("bid-err").textContent = "";
+  $("bid-input").value = "";
+
+  if (g.mode === "online") {
+    handleOnlineRaise(amount);
+    return;
+  }
+
+  // Solo live bidding war step
+  g.highBid = amount;
+  g.highBidder = "You";
+  playBidSound();
+  addBidLog(`You raise the bid to $${amount.toLocaleString()}!`, "green");
+  updateBidDisplay();
+
+  // Check if rival counters or drops out
+  if (amount >= g.rivalMax) {
+    addBidLog(`${g.riv.name} shakes their head and drops out!`);
+    setTimeout(() => concludeRound(true, amount, g.riv.name), 350);
+  } else {
+    const step = Math.floor(Math.random() * g.riv.stepMax) + 25;
+    const counter = amount + step;
+    if (counter > g.rivalMax && Math.random() < 0.65) {
+      addBidLog(`${g.riv.name} hesitates and steps back!`);
+      setTimeout(() => concludeRound(true, amount, g.riv.name), 350);
+    } else {
+      const actualCounter = Math.min(counter, g.rivalMax + 40);
+      g.highBid = actualCounter;
+      g.highBidder = g.riv.name;
+      addBidLog(`${g.riv.name} counters with $${actualCounter.toLocaleString()}!`, "cyan");
+      updateBidDisplay();
+      $("bid-input").focus();
+    }
+  }
+}
+
+function passItem() {
+  if (g.mode === "online") {
+    handleOnlinePass();
+    return;
+  }
+  addBidLog(`You dropped out of the bidding.`, "red");
+  concludeRound(false, g.highBid, g.riv.name);
+}
+
+function concludeRound(playerWon, finalPrice, rivalName) {
+  $("card-bid").classList.add("hidden");
+  $("card-result").classList.remove("hidden");
+
+  if (playerWon) {
+    g.cash -= finalPrice;
+    g.col += g.val;
+    const profit = g.val - finalPrice;
+    if (g.mode === "endless") {
+      g.str++;
+      if (g.str > g.best) g.best = g.str;
+    }
+
+    playSoldSound();
+    showSoldBanner(g.item.name, finalPrice);
+
+    $("res-title").innerHTML = `<span class="green">SOLD!</span> You won the <strong>${g.item.name}</strong> for $${finalPrice.toLocaleString()}!`;
+    $("res-val").textContent = `Appraisal reveal: Worth $${g.val.toLocaleString()}`;
+    $("res-net").innerHTML = profit >= 0
+      ? `<span class="green">Profit: +$${profit.toLocaleString()}</span>`
+      : `<span class="red">Loss: -$${Math.abs(profit).toLocaleString()}</span>`;
+  } else {
+    g.str = 0;
+    playLoseSound();
+    $("res-title").innerHTML = `<span class="red">SOLD to ${rivalName}</span> for $${finalPrice.toLocaleString()}!`;
+    $("res-val").textContent = `Appraisal reveal: It was worth $${g.val.toLocaleString()}.`;
+    $("res-net").textContent = "";
+  }
+
+  $("cashout-box").classList.toggle("hidden", g.col === 0);
+  $("res-col").textContent = g.col.toLocaleString();
+
+  const waitHost = g.mode === "online" && !isHost;
+  $("btn-next").classList.toggle("hidden", waitHost);
+  $("wait-host-msg").classList.toggle("hidden", !waitHost);
+  updateHUD();
+}
+
+function cashOut() {
+  g.cash += g.col;
+  g.col = 0;
+  $("cashout-box").classList.add("hidden");
+  updateHUD();
+  if (g.mode === "online") {
+    sendOnlineMsg({ type: "sync_stats", cash: g.cash, col: g.col });
+  }
+}
+
+function nextRound() {
+  g.rnd++;
+  if (g.mode === "online") {
+    if (g.rnd > 5) {
+      sendOnlineMsg({ type: "finish_match", cash: g.cash, col: g.col });
+      finishOnlineMatch();
+      return;
+    }
+    startOnlineRoundHost();
+    return;
+  }
+
+  if (g.mode === "normal" && g.rnd > 5) {
+    endGame();
+    return;
+  }
+  if (g.cash < 50 && g.col === 0) {
+    alert("You have less than $50 left and nothing to cash out!");
+    endGame();
+    return;
+  }
+  setupSoloRound();
+}
+
+function endGame() {
+  switchView("view-end");
+  $("solo-end-card").classList.remove("hidden");
+  $("h2h-end-card").classList.add("hidden");
+
+  const tot = g.cash + g.col;
+  $("end-rnd").textContent = g.mode === "normal" ? 5 : g.rnd;
+  $("end-cash").textContent = g.cash.toLocaleString();
+  $("end-col").textContent = g.col.toLocaleString();
+  $("end-tot").textContent = tot.toLocaleString();
+
+  const isEndless = g.mode === "endless";
+  $("end-str-row").classList.toggle("hidden", !isEndless);
+  if (isEndless) $("end-str").textContent = g.best;
+
+  $("end-verdict").innerHTML = tot > 1000
+    ? `<span class="green">RESULT: Profit! You beat your $1,000 starting cash!</span>`
+    : `<span class="red">RESULT: Loss! You finished below your $1,000 starting cash.</span>`;
+}
+
+/* ONLINE 1V1 LIVE BIDDING WAR (VIA NTFY.SH HTTPS RELAY) */
+function openOnlineLobby() {
+  stopOnlinePoll();
+  $("online-name").value = $("set-name").value.trim() || g.myName || "";
+  $("host-msg").textContent = "";
+  $("join-msg").textContent = "";
+  switchView("view-online");
+}
+
+function getOnlineName() {
+  const n = $("online-name").value.trim() || $("set-name").value.trim() || "Player";
+  g.myName = n;
+  return n;
+}
+
+function hostOnline() {
+  getOnlineName();
+  isHost = true;
+  roomCode = "AUC-" + Math.floor(1000 + Math.random() * 9000);
+  $("host-msg").textContent = `Room Code: ${roomCode} — Waiting for friend...`;
+  startOnlinePoll();
+}
+
+function joinOnline() {
+  getOnlineName();
+  const code = $("join-code").value.trim().toUpperCase();
+  if (!code) {
+    $("join-msg").textContent = "Enter a room code first.";
+    return;
+  }
+  isHost = false;
+  roomCode = code;
+  $("join-msg").textContent = "Connecting to room...";
+  startOnlinePoll();
+  sendOnlineMsg({ type: "hello", name: g.myName });
+}
+
+function stopOnlinePoll() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = null;
+}
+
+function startOnlinePoll() {
+  stopOnlinePoll();
+  lastMsgId = "";
+  pollTimer = setInterval(pollOnlineMessages, 1100);
+}
+
+async function sendOnlineMsg(payload) {
+  if (!roomCode) return;
+  payload.sender = g.myName;
+  payload.uid = isHost ? "host" : "guest";
+  try {
+    await fetch(`https://ntfy.sh/msa_${roomCode}`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {}
+}
+
+async function pollOnlineMessages() {
+  if (!roomCode) return;
+  try {
+    const res = await fetch(`https://ntfy.sh/msa_${roomCode}/json?poll=1&since=30s`);
+    const text = await res.text();
+    const lines = text.trim().split("\n").filter(Boolean);
+    for (const line of lines) {
+      const evt = JSON.parse(line);
+      if (!evt.message || evt.id === lastMsgId) continue;
+      lastMsgId = evt.id;
+      const data = JSON.parse(evt.message);
+      const myUid = isHost ? "host" : "guest";
+      if (data.uid === myUid) continue;
+      handleIncomingOnline(data);
+    }
+  } catch (e) {}
+}
+
+function handleIncomingOnline(data) {
+  if (data.type === "hello" && isHost) {
+    g.oppName = data.name || "Friend";
+    sendOnlineMsg({ type: "welcome", name: g.myName });
+    beginOnlineMatch();
+  } else if (data.type === "welcome" && !isHost) {
+    g.oppName = data.name || "Host";
+    beginOnlineMatch();
+  } else if (data.type === "round_start") {
+    g.rnd = data.rnd;
+    g.item = data.item;
+    g.val = data.val;
+    g.highBid = data.highBid;
+    g.highBidder = data.highBidder;
+    myTurnOnline = (data.turnUid === (isHost ? "host" : "guest"));
+    renderOnlineRound();
+  } else if (data.type === "raise") {
+    g.highBid = data.amount;
+    g.highBidder = g.oppName;
+    playBidSound();
+    addBidLog(`${g.oppName} raised the bid to $${data.amount.toLocaleString()}!`, "cyan");
+    updateBidDisplay();
+    myTurnOnline = true;
+    setOnlineTurnUI();
+  } else if (data.type === "pass_item") {
+    addBidLog(`${g.oppName} dropped out of the bidding!`, "green");
+    const won = g.highBidder === g.myName;
+    concludeRound(won, g.highBid, g.oppName);
+    sendOnlineMsg({ type: "sync_stats", cash: g.cash, col: g.col });
+  } else if (data.type === "giveup_item") {
+    addBidLog(`${g.oppName} gave up the item to you!`, "green");
+    concludeRound(true, g.highBid, g.oppName);
+    sendOnlineMsg({ type: "sync_stats", cash: g.cash, col: g.col });
+  } else if (data.type === "chat") {
+    appendChat(g.oppName, data.text, "cyan");
+  } else if (data.type === "sync_stats") {
+    g.oppFinal = { cash: data.cash, col: data.col };
+  } else if (data.type === "finish_match") {
+    g.oppFinal = { cash: data.cash, col: data.col };
+    sendOnlineMsg({ type: "sync_stats", cash: g.cash, col: g.col });
+    finishOnlineMatch();
+  }
+}
+
+function beginOnlineMatch() {
+  g.mode = "online";
+  g.cash = 1000;
+  g.col = 0;
+  g.rnd = 1;
+  g.oppFinal = { cash: 1000, col: 0 };
+
+  $("hud-str-box").classList.add("hidden");
+  $("btn-quit").classList.add("hidden");
+  $("btn-giveup").classList.remove("hidden");
+  $("online-status-box").classList.remove("hidden");
+  $("chat-card").classList.remove("hidden");
+  $("chat-log").innerHTML = "";
+  $("p1-label").textContent = g.myName;
+  $("p2-label").textContent = g.oppName;
+
+  switchView("view-game");
+  if (isHost) startOnlineRoundHost();
+}
+
+function startOnlineRoundHost() {
+  const gen = generateItemAndVal();
+  g.item = gen.item;
+  g.val = gen.val;
+  g.highBid = 50;
+  g.highBidder = "Starting Bid";
+  const starter = (g.rnd % 2 === 1) ? "host" : "guest";
+  myTurnOnline = (starter === "host");
+
+  sendOnlineMsg({
+    type: "round_start",
+    rnd: g.rnd,
+    item: g.item,
+    val: g.val,
+    highBid: g.highBid,
+    highBidder: g.highBidder,
+    turnUid: starter
+  });
+  renderOnlineRound();
+}
+
+function renderOnlineRound() {
+  updateHUD();
+  $("bid-err").textContent = "";
+  $("bid-input").value = "";
+  $("bid-log").innerHTML = "";
+  $("card-bid").classList.remove("hidden");
+  $("card-result").classList.add("hidden");
+  $("item-name").textContent = g.item.name;
+  updateBidDisplay();
+  addBidLog(`Round ${g.rnd}: Bidding starts at $50!`);
+  setOnlineTurnUI();
+}
+
+function setOnlineTurnUI() {
+  $("bid-controls").classList.toggle("hidden", !myTurnOnline);
+  $("wait-msg").classList.toggle("hidden", myTurnOnline);
+  $("p2-turn-state").textContent = myTurnOnline ? "Your turn!" : `${g.oppName}'s turn...`;
+  if (myTurnOnline) $("bid-input").focus();
+}
+
+function handleOnlineRaise(amount) {
+  g.highBid = amount;
+  g.highBidder = g.myName;
+  playBidSound();
+  addBidLog(`${g.myName} raised the bid to $${amount.toLocaleString()}!`, "green");
+  updateBidDisplay();
+  myTurnOnline = false;
+  setOnlineTurnUI();
+  sendOnlineMsg({ type: "raise", amount });
+}
+
+function handleOnlinePass() {
+  addBidLog(`${g.myName} dropped out of the bidding.`, "red");
+  sendOnlineMsg({ type: "pass_item" });
+  const won = g.highBidder === g.myName;
+  concludeRound(won, g.highBid, g.oppName);
+  sendOnlineMsg({ type: "sync_stats", cash: g.cash, col: g.col });
+}
+
+function giveUpItem() {
+  addBidLog(`${g.myName} gave up the item!`, "red");
+  sendOnlineMsg({ type: "giveup_item" });
+  concludeRound(false, g.highBid, g.oppName);
+  sendOnlineMsg({ type: "sync_stats", cash: g.cash, col: g.col });
+}
+
+function sendChat() {
+  const txt = $("chat-input").value.trim();
+  if (!txt) return;
+  $("chat-input").value = "";
+  appendChat(g.myName, txt, "green");
+  sendOnlineMsg({ type: "chat", text: txt });
+}
+
+function appendChat(who, msg, cls) {
+  const line = document.createElement("div");
+  line.innerHTML = `<span class="${cls}">${who}:</span> ${msg.replace(/</g, "&lt;")}`;
+  const box = $("chat-log");
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function finishOnlineMatch() {
+  stopOnlinePoll();
+  switchView("view-end");
+  $("solo-end-card").classList.add("hidden");
+  $("h2h-end-card").classList.remove("hidden");
+
+  const opp = g.oppFinal || { cash: 1000, col: 0 };
+  const myTot = g.cash + g.col;
+  const oppTot = opp.cash + opp.col;
+
+  $("h2h-me-name").textContent = g.myName;
+  $("h2h-me-cash").textContent = g.cash.toLocaleString();
+  $("h2h-me-col").textContent = g.col.toLocaleString();
+  $("h2h-me-tot").textContent = myTot.toLocaleString();
+
+  $("h2h-opp-name").textContent = g.oppName;
+  $("h2h-opp-cash").textContent = opp.cash.toLocaleString();
+  $("h2h-opp-col").textContent = opp.col.toLocaleString();
+  $("h2h-opp-tot").textContent = oppTot.toLocaleString();
+
+  $("h2h-me-box").classList.toggle("winner-glow", myTot >= oppTot);
+  $("h2h-opp-box").classList.toggle("winner-glow", oppTot > myTot);
+
+  if (myTot > oppTot) {
+    $("h2h-winner-banner").innerHTML = `<span class="green">${g.myName} WINS THE MATCH!</span>`;
+  } else if (oppTot > myTot) {
+    $("h2h-winner-banner").innerHTML = `<span class="red">${g.oppName} WINS THE MATCH!</span>`;
+  } else {
+    $("h2h-winner-banner").innerHTML = `<span class="cyan">IT'S A TIE!</span>`;
+  }
+}
+
+$("bid-input").addEventListener("keydown", e => { if (e.key === "Enter") submitBid(); });
+$("chat-input").addEventListener("keydown", e => { if (e.key === "Enter") sendChat(); });
+</script>
+</body>
+</html>
